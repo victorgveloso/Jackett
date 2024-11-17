@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using AngleSharp.Dom;
 using AngleSharp.Html.Dom;
@@ -12,36 +11,35 @@ using Jackett.Common.Services.Interfaces;
 using Jackett.Common.Utils;
 using Jackett.Common.Utils.Clients;
 using NLog;
-using WebClient = Jackett.Common.Utils.Clients.WebClient;
 
 namespace Jackett.Common.Indexers.Definitions
 {
-    public class RedeTorrent : PublicBrazilianIndexerBase
+    public class ApacheTorrent : PublicBrazilianIndexerBase
     {
-        public override string Id => "redetorrent";
+        public override string Id => "apachetorrent";
 
-        public override string Name => "RedeTorrent";
+        public override string Name => "ApacheTorrent";
 
-        public override string SiteLink { get; protected set; } = "https://redetorrent.com/";
+        public override string SiteLink { get; protected set; } = "https://apachetorrent.com/";
 
-        public RedeTorrent(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps, ICacheService cs)
-            : base(configService, wc, l, ps, cs)
+        public ApacheTorrent(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+                             ICacheService cs) : base(configService, wc, l, ps, cs)
         {
-            // Parser = new RedeTorrentParser(wc, Name, MapTrackerCatToNewznab);
         }
 
-        public override IParseIndexerResponse GetParser() => new RedeTorrentParser(webclient, Name);
+        public override IParseIndexerResponse GetParser() =>
+            new ApacheTorrentParser(webclient, Name);
     }
 
-    public class RedeTorrentParser : PublicBrazilianParser
+    public class ApacheTorrentParser : PublicBrazilianParser
     {
         private readonly WebClient _webclient;
-        protected string Tracker;
+        public string Tracker { get; }
 
-        public RedeTorrentParser(WebClient webclient, string name) : base(name)
+        public ApacheTorrentParser(WebClient webclient, string name) : base(name)
         {
             _webclient = webclient;
-            Tracker = "RedeTorrent";
+            Tracker = "ApacheTorrent";
         }
 
         private Dictionary<string, string> ExtractFileInfo(IDocument detailsDom)
@@ -95,7 +93,7 @@ namespace Jackett.Common.Indexers.Definitions
 
             var parser = new HtmlParser();
             var dom = parser.ParseDocument(indexerResponse.Content);
-            var rows = dom.QuerySelectorAll("div.capa_lista");
+            var rows = dom.QuerySelectorAll("div.capaname");
 
             foreach (var row in rows)
             {
@@ -104,8 +102,7 @@ namespace Jackett.Common.Indexers.Definitions
                     continue;
 
                 var detailUrl = new Uri(detailAnchor.GetAttribute("href") ?? string.Empty);
-                var titleElement = row.QuerySelector("h2[itemprop='headline']");
-                var title = CleanTitle(titleElement?.TextContent.Trim() ?? detailAnchor.GetAttribute("title")?.Trim() ?? string.Empty);
+                var title = CleanTitle(detailAnchor.GetAttribute("title")?.Trim() ?? string.Empty);
 
                 var releaseCommonInfo = new ReleaseInfo
                 {
@@ -127,7 +124,8 @@ namespace Jackett.Common.Indexers.Definitions
                 {
                     var magnet = magnetLink.GetAttribute("href");
                     var release = releaseCommonInfo.Clone() as ReleaseInfo;
-                    release.Guid = release.Link = release.MagnetUri = new Uri(magnet ?? string.Empty);
+                    release.MagnetUri = new Uri(magnet);
+                    release.Link = new Uri(magnet);
                     release.DownloadVolumeFactor = 0;
                     release.UploadVolumeFactor = 1;
 
